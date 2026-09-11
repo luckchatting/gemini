@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- Ensure the app looks good on mobile screens -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GPS Speedometer</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --text-color: #ffffff;
+            --accent-color: #00ff88;
+            --secondary-text: #888888;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        .dashboard {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 4px solid #333;
+            border-radius: 50%;
+            width: 280px;
+            height: 280px;
+            background: radial-gradient(circle, #222 0%, #111 100%);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.1);
+        }
+
+        .speed {
+            font-size: 6rem;
+            font-weight: 800;
+            line-height: 1;
+            color: var(--accent-color);
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+
+        .unit {
+            font-size: 1.5rem;
+            color: var(--secondary-text);
+            margin-top: 5px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .controls {
+            margin-top: 40px;
+        }
+
+        button {
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:active {
+            background-color: #555;
+        }
+
+        .status {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: var(--secondary-text);
+            max-width: 80%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <div class="speed" id="speedValue">0</div>
+        <div class="unit" id="unitLabel">km/h</div>
+    </div>
+
+    <div class="controls">
+        <button id="toggleUnitBtn">Switch to MPH</button>
+    </div>
+
+    <div class="status" id="statusMessage">Requesting GPS access...</div>
+
+    <script>
+        const speedValue = document.getElementById('speedValue');
+        const unitLabel = document.getElementById('unitLabel');
+        const toggleUnitBtn = document.getElementById('toggleUnitBtn');
+        const statusMessage = document.getElementById('statusMessage');
+
+        // State
+        let isKmh = true; // true = km/h, false = mph
+        let watchId = null;
+
+        // Conversion factors from meters per second (m/s)
+        const MS_TO_KMH = 3.6;
+        const MS_TO_MPH = 2.23694;
+
+        // Toggle unit listener
+        toggleUnitBtn.addEventListener('click', () => {
+            isKmh = !isKmh;
+            unitLabel.textContent = isKmh ? 'km/h' : 'mph';
+            toggleUnitBtn.textContent = isKmh ? 'Switch to MPH' : 'Switch to KM/H';
+            // Force a UI update of the current speed immediately if it's already running
+            speedValue.textContent = "0"; 
+        });
+
+        // Initialize Geolocation
+        if ('geolocation' in navigator) {
+            const options = {
+                enableHighAccuracy: true, // Forces device to use GPS hardware instead of cell towers
+                maximumAge: 0,
+                timeout: 5000
+            };
+
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    // Speed is returned in meters per second. It will be null if stationary.
+                    let speedInMs = position.coords.speed;
+                    
+                    if (speedInMs === null || speedInMs < 0.2) {
+                        speedInMs = 0; // Filter out slight GPS drift
+                    }
+
+                    // Convert speed based on selected unit
+                    const finalSpeed = isKmh ? (speedInMs * MS_TO_KMH) : (speedInMs * MS_TO_MPH);
+                    
+                    speedValue.textContent = Math.round(finalSpeed);
+                    
+                    // Display GPS accuracy status
+                    const accuracy = position.coords.accuracy.toFixed(0);
+                    statusMessage.textContent = `GPS Signal: ±${accuracy}m accuracy`;
+                },
+                (error) => {
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            statusMessage.textContent = "Error: Location permission denied.";
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            statusMessage.textContent = "Error: GPS signal unavailable.";
+                            break;
+                        case error.TIMEOUT:
+                            statusMessage.textContent = "Error: GPS request timed out.";
+                            break;
+                        default:
+                            statusMessage.textContent = "Error: An unknown error occurred.";
+                            break;
+                    }
+                },
+                options
+            );
+        } else {
+            statusMessage.textContent = "Geolocation is not supported by your browser.";
+        }
+    </script>
+</body>
+</html>
